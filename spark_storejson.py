@@ -7,10 +7,13 @@ from pyspark.sql import SQLContext
 import requests
 import json
 from pyspark.sql import functions as F
+from kafka import KafkaProducer
+from kafka import KafkaConsumer
 from urllib.request import Request, urlopen
 
-#Set mongodb variables
+#Set variables
 mongodburi = "mongodb://localhost/newtestdb.AI"
+topic = "userdetails"
 
 my_spark = SparkSession.builder.master("local[*]").appName("myApp") \
     .config("spark.mongodb.input.uri", mongodburi) \
@@ -37,6 +40,7 @@ def write_db(url):
     # create a Dataframe
     jsonDF = spark.read.json(rdd)
     jsonDF.write.format('com.mongodb.spark.sql.DefaultSource').mode("append").save()
+
     return("write successful")
 
 #writes the input json value to db
@@ -48,6 +52,7 @@ def write_json(jsonval):
     # create a Dataframe
     jsonDF = spark.read.json(rdd)
     jsonDF.write.format('com.mongodb.spark.sql.DefaultSource').mode("append").save()
+    userdetails_producer(topic, jsonval)
     return ("write successful")
 
 #writes the upsert json value in db
@@ -62,6 +67,16 @@ def update_results(jsonval):
     jsonDF.write.format('com.mongodb.spark.sql.DefaultSource').mode("append").option("replaceDocument", "false").save()
     return ("write successful")
 
+def userdetails_producer(topic,message):
+    producer = KafkaProducer(bootstrap_servers=
+                             ['localhost:29092'], value_serializer=lambda v: json.dumps(v).encode('utf-8'))
+    future = producer.send(topic, message)  # r.json())
+    result = future.get(timeout=60)
+    # producer.flush('userdetails_producer')
+    return (result)
+
+
+
 if __name__ == "__main__":
 
     #url test
@@ -71,13 +86,15 @@ if __name__ == "__main__":
 
     #Json load test
 
-    x = '{ "_id":"dave","username":"dave", "age":30, "city":"New York","photo":"/Users/giridharangovindan/PycharmProjects/finalprojectPHOTO.jpg","result text":""}'
+    x = '{ "_id":"Gary","username":"Gary", "age":30, "city":"New York","photo":"/Users/giridharangovindan/PycharmProjects/finalprojectPHOTO.jpg","result text":""}'
     y = json.loads(x)
     write_json(y)
 
 
     #update test
 
-    x_updated = '{"_id":"dave","userid":"dave", "age":30, "city":"New York","photo":"/Users/giridharangovindan/PycharmProjects/finalprojectPHOTO.jpg","result text":"This doesnot look like melanoma probably"}'
-    y_updated = json.loads(x_updated)
-    update_results(y_updated)
+    # x_updated = '{"_id":"Gary","userid":"Gary", "age":30, "city":"New York","photo":"/Users/giridharangovindan/PycharmProjects/finalprojectPHOTO.jpg","result text":"This doesnot look like melanoma probably"}'
+    # y_updated = json.loads(x_updated)
+    # update_results(y_updated)
+
+
